@@ -39,6 +39,7 @@ class Student(Base):
     name = Column(String, nullable=False)
     father_name = Column(String)
     mother_name = Column(String)
+    dob = Column(Date)
     session_id = Column(Integer, ForeignKey('academic_sessions.id'))
     class_id = Column(Integer, ForeignKey('classes.id'))
     section_id = Column(Integer, ForeignKey('sections.id'))

@@ -15,6 +15,9 @@ class ExamComponent(Base):
     exam_id = Column(Integer, ForeignKey('examinations.id'), nullable=False)
     name = Column(String, nullable=False) # e.g., Written, MA, PT
     max_marks = Column(Float, nullable=False)
+    code = Column(String)
+    is_derived = Column(Boolean, default=False)
+    display_order = Column(Integer, default=0)
 
     # Relationships
     exam = relationship("Examination", backref="components")
