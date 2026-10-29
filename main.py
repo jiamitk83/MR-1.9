@@ -1,25 +1,39 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QStackedWidget
+from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget,
+                             QStackedWidget, QListWidget, QHBoxLayout, QListWidgetItem)
 from models.database import init_db
 from ui.academic_setup_page import AcademicSetupPage
+from ui.student_master_page import StudentMasterPage
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("School Mark Register 1.9")
-        self.resize(800, 600)
+        self.resize(1000, 700)
 
-        self.central_widget = QStackedWidget()
-        self.setCentralWidget(self.central_widget)
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        main_layout = QHBoxLayout(main_widget)
+
+        # Sidebar
+        self.sidebar = QListWidget()
+        self.sidebar.setFixedWidth(200)
+        self.sidebar.addItem("Academic Setup")
+        self.sidebar.addItem("Student Master")
+        self.sidebar.currentRowChanged.connect(self.switch_page)
+        main_layout.addWidget(self.sidebar)
+
+        # Main content
+        self.content_stack = QStackedWidget()
+        main_layout.addWidget(self.content_stack)
 
         self.academic_setup_page = AcademicSetupPage()
-        self.central_widget.addWidget(self.academic_setup_page)
+        self.student_master_page = StudentMasterPage()
 
-def main():
-    init_db()
-    app = QApplication([])
-    window = MainWindow()
-    window.show()
-    app.exec()
+        self.content_stack.addWidget(self.academic_setup_page)
+        self.content_stack.addWidget(self.student_master_page)
+
+    def switch_page(self, index):
+        self.content_stack.setCurrentIndex(index)
 
 if __name__ == "__main__":
     main()
