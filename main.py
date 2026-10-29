@@ -4,6 +4,7 @@ from models.database import init_db
 from ui.academic_setup_page import AcademicSetupPage
 from ui.student_master_page import StudentMasterPage
 from ui.examination_page import ExaminationPage
+from ui.marks_entry_page import MarksEntryPage
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -21,6 +22,7 @@ class MainWindow(QMainWindow):
         self.sidebar.addItem("Academic Setup")
         self.sidebar.addItem("Student Master")
         self.sidebar.addItem("Examination")
+        self.sidebar.addItem("Marks Entry")
         self.sidebar.currentRowChanged.connect(self.switch_page)
         main_layout.addWidget(self.sidebar)
 
@@ -31,10 +33,12 @@ class MainWindow(QMainWindow):
         self.academic_setup_page = AcademicSetupPage()
         self.student_master_page = StudentMasterPage()
         self.examination_page = ExaminationPage()
+        self.marks_entry_page = MarksEntryPage()
 
         self.content_stack.addWidget(self.academic_setup_page)
         self.content_stack.addWidget(self.student_master_page)
         self.content_stack.addWidget(self.examination_page)
+        self.content_stack.addWidget(self.marks_entry_page)
 
     def switch_page(self, index):
         self.content_stack.setCurrentIndex(index)
