@@ -44,6 +44,9 @@ class Student(Base):
     section_id = Column(Integer, ForeignKey('sections.id'))
     active = Column(Boolean, default=True)
 
+# Import models to ensure they are registered with Base metadata
+from models.examination import Examination, ExamComponent
+
 # Engine setup
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
