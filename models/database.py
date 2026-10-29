@@ -46,6 +46,7 @@ class Student(Base):
 
 # Import models to ensure they are registered with Base metadata
 from models.examination import Examination, ExamComponent
+from models.marks import Mark
 
 # Engine setup
 engine = create_engine(DATABASE_URL)
