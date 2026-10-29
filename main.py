@@ -47,5 +47,12 @@ class MainWindow(QMainWindow):
     def switch_page(self, index):
         self.content_stack.setCurrentIndex(index)
 
+def main():
+    init_db()
+    app = QApplication([])
+    window = MainWindow()
+    window.show()
+    app.exec()
+
 if __name__ == "__main__":
     main()
