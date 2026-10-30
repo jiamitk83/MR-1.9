@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget,
                              QStackedWidget, QListWidget, QHBoxLayout, QListWidgetItem)
 from models.database import init_db
+from ui.theme_manager import ThemeHeader, ThemeManager
 from ui.dashboard_page import DashboardPage
 from ui.academic_setup_page import AcademicSetupPage
 from ui.student_master_page import StudentMasterPage
@@ -11,10 +12,12 @@ from ui.settings_page import SettingsPage
 from ui.backup_page import BackupPage
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, theme_manager=None):
         super().__init__()
         self.setWindowTitle("School Mark Register 1.9")
         self.resize(1200, 800)
+        self.theme_manager = theme_manager or ThemeManager()
+        self.setMenuWidget(ThemeHeader(self.theme_manager, self))
 
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -22,6 +25,7 @@ class MainWindow(QMainWindow):
 
         # Sidebar
         self.sidebar = QListWidget()
+        self.sidebar.setObjectName("navigationSidebar")
         self.sidebar.setFixedWidth(200)
         self.sidebar.addItem("Dashboard")
         self.sidebar.addItem("Academic Setup")
@@ -56,9 +60,13 @@ class MainWindow(QMainWindow):
         self.content_stack.setCurrentIndex(index)
 
 def main():
-    init_db()
     app = QApplication([])
-    window = MainWindow()
+    app.setOrganizationName("Maark Register")
+    app.setApplicationName("School Mark Register")
+    app.setStyle("Fusion")
+    theme_manager = ThemeManager(app)
+    init_db()
+    window = MainWindow(theme_manager)
     window.show()
     app.exec()
 

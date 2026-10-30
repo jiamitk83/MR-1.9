@@ -12,3 +12,7 @@ A professional, production-ready examination management system built with PySide
 - `tests/`: Automated test suite
 - `data/`: SQLite database storage
 - `memory/`: Persistent project memory
+
+## Appearance
+
+Use the sun/moon control in the application header to switch between Dark Mode and Light Mode. The selection is saved in the desktop application's user settings and restored on the next launch; the default is Light Mode. Changing the appearance does not reload pages or modify academic records. Exported report-card PDFs keep their print styling.
