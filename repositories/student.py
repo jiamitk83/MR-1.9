@@ -1,3 +1,5 @@
+import re
+
 from models.database import SessionLocal, Student, AcademicSession, Class, Section
 from sqlalchemy import and_
 
@@ -7,14 +9,128 @@ class StudentRepository:
 
     def generate_admission_number(self):
         with self.session_factory() as session:
-            last_student = session.query(Student).order_by(Student.id.desc()).first()
-            if last_student and last_student.admission_number:
-                try:
-                    num = int(last_student.admission_number.replace("ADM", ""))
-                    return f"ADM{num + 1:04d}"
-                except ValueError:
-                    pass
-            return "ADM0001"
+            return self._generate_admission_numbers(session, 1)[0]
+
+    @staticmethod
+    def _generate_admission_numbers(session, count):
+        if count <= 0:
+            return []
+        numbers = {
+            admission_number
+            for (admission_number,) in session.query(Student.admission_number).all()
+            if admission_number
+        }
+        suffixes = [
+            int(match.group(1))
+            for admission_number in numbers
+            if (match := re.fullmatch(r"ADM(\d+)", admission_number, re.IGNORECASE))
+        ]
+        next_suffix = max(suffixes, default=0) + 1
+        generated = []
+        while len(generated) < count:
+            candidate = f"ADM{next_suffix:04d}"
+            next_suffix += 1
+            if candidate in numbers:
+                continue
+            numbers.add(candidate)
+            generated.append(candidate)
+        return generated
+
+    def get_existing_roll_numbers(self, session_id, class_id, section_id, roll_numbers=None):
+        with self.session_factory() as session:
+            query = session.query(Student.roll_number).filter(
+                Student.session_id == session_id,
+                Student.class_id == class_id,
+                Student.section_id == section_id,
+            )
+            if roll_numbers is not None:
+                roll_numbers = set(roll_numbers)
+                if not roll_numbers:
+                    return set()
+                query = query.filter(Student.roll_number.in_(roll_numbers))
+            return {roll_number for (roll_number,) in query.all()}
+
+    def add_students_bulk(self, students, session_id, class_id, section_id):
+        """Create a validated student batch in one transaction."""
+        students = list(students)
+        if not students:
+            raise ValueError("There are no students to import.")
+        if not all((session_id, class_id, section_id)):
+            raise ValueError("Select an active session, class, and section.")
+
+        with self.session_factory() as session:
+            try:
+                academic_session = session.query(AcademicSession).filter(
+                    AcademicSession.id == session_id,
+                    AcademicSession.is_active.is_(True),
+                ).first()
+                class_record = session.query(Class).filter(Class.id == class_id).first()
+                section_record = session.query(Section).filter(
+                    Section.id == section_id,
+                    Section.class_id == class_id,
+                    Section.session_id == session_id,
+                ).first()
+                if academic_session is None:
+                    raise ValueError("The selected academic session is no longer active.")
+                if class_record is None or section_record is None:
+                    raise ValueError("The selected class or section is no longer available.")
+
+                roll_numbers = []
+                for student_data in students:
+                    roll_number = student_data.get("roll_number")
+                    name = student_data.get("name")
+                    if (
+                        isinstance(roll_number, bool)
+                        or not isinstance(roll_number, int)
+                        or roll_number <= 0
+                    ):
+                        raise ValueError("Every roll number must be a positive whole number.")
+                    if not isinstance(name, str) or not name.strip():
+                        raise ValueError("Every student must have a name.")
+                    roll_numbers.append(roll_number)
+                if len(set(roll_numbers)) != len(roll_numbers):
+                    raise ValueError("The import contains duplicate roll numbers.")
+
+                existing_roll_numbers = {
+                    existing_roll_number
+                    for (existing_roll_number,) in session.query(Student.roll_number).filter(
+                        Student.session_id == session_id,
+                        Student.class_id == class_id,
+                        Student.section_id == section_id,
+                        Student.roll_number.in_(roll_numbers),
+                    ).all()
+                }
+                if existing_roll_numbers:
+                    duplicates = ", ".join(
+                        str(number) for number in sorted(existing_roll_numbers)
+                    )
+                    raise ValueError(
+                        f"Roll number(s) already exist in this section: {duplicates}."
+                    )
+
+                admission_numbers = self._generate_admission_numbers(
+                    session, len(students)
+                )
+                created = []
+                for student_data, admission_number in zip(
+                    students, admission_numbers
+                ):
+                    student = Student(
+                        admission_number=admission_number,
+                        roll_number=student_data["roll_number"],
+                        name=student_data["name"].strip(),
+                        session_id=session_id,
+                        class_id=class_id,
+                        section_id=section_id,
+                    )
+                    session.add(student)
+                    session.flush()
+                    created.append(student)
+                session.commit()
+                return created
+            except Exception:
+                session.rollback()
+                raise
 
     def add_student(self, name, roll_number, father_name=None, mother_name=None,
                     dob=None, session_id=None, class_id=None, section_id=None):

@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt, QDate
 from repositories.student import StudentRepository
 from repositories.academic_setup import AcademicSetupRepository
+from ui.bulk_student_entry_dialog import BulkStudentEntryDialog
 
 class StudentMasterPage(QWidget):
     def __init__(self):
@@ -45,10 +46,16 @@ class StudentMasterPage(QWidget):
         cascade_layout.addWidget(self.section_combo)
         layout.addLayout(cascade_layout)
 
-        # Add student button
+        # Add student actions
+        student_actions = QHBoxLayout()
         add_btn = QPushButton("Add New Student")
         add_btn.clicked.connect(self.add_student)
-        layout.addWidget(add_btn)
+        student_actions.addWidget(add_btn)
+        bulk_add_btn = QPushButton("Bulk Student Entry")
+        bulk_add_btn.clicked.connect(self.bulk_student_entry)
+        student_actions.addWidget(bulk_add_btn)
+        student_actions.addStretch()
+        layout.addLayout(student_actions)
 
         # Student Table
         self.table = QTableWidget()
@@ -135,6 +142,7 @@ class StudentMasterPage(QWidget):
             section_id=section_id,
             keyword=keyword if keyword else None
         )
+        students.sort(key=lambda student: (student.roll_number, student.id))
 
         self.table.setRowCount(len(students))
         for row, student in enumerate(students):
@@ -181,6 +189,28 @@ class StudentMasterPage(QWidget):
                 QMessageBox.information(self, "Success", "Student added successfully!")
             else:
                 QMessageBox.warning(self, "Error", "Roll number already exists!")
+
+    def bulk_student_entry(self):
+        dialog = BulkStudentEntryDialog(
+            self.setup_repo, self.student_repo, parent=self
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        for combo, selected_id in (
+            (self.session_combo, dialog.session_combo.currentData()),
+            (self.class_combo, dialog.class_combo.currentData()),
+            (self.section_combo, dialog.section_combo.currentData()),
+        ):
+            index = combo.findData(selected_id)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        self.refresh_students()
+        QMessageBox.information(
+            self,
+            "Bulk Import Complete",
+            f"Successfully imported {dialog.imported_count} student(s).",
+        )
 
     def edit_student(self):
         row = self.table.currentRow()
