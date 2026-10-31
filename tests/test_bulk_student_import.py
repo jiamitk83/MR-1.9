@@ -5,6 +5,7 @@ from openpyxl import Workbook, load_workbook
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 from sqlalchemy import create_engine, event
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -297,8 +298,94 @@ def test_template_download_contains_exact_two_columns_and_examples(
         (3, "Amit Singh"),
         (4, "Neha Gupta"),
     ]
-    assert dialog.session_combo.count() == 2
+    assert dialog.session_combo.count() == 3
     assert dialog.session_combo.itemData(1) == 1
+    assert dialog.session_combo.itemText(1) == "2026-2027"
+    assert dialog.session_combo.itemData(2) == 2
+    assert dialog.session_combo.itemText(2) == "2025-2026 (Inactive)"
+    assert not dialog.session_combo.model().item(2).isEnabled()
+    assert dialog.session_combo.currentData() is None
+    dialog.close()
+
+
+def test_dialog_loads_sessions_when_opened_and_cascades_class_and_section(
+    bulk_context,
+):
+    _service, student_repository, setup_repository, _session_factory, _engine, app = (
+        bulk_context
+    )
+    dialog = BulkStudentEntryDialog(setup_repository, student_repository)
+    dialog.show()
+    app.processEvents()
+
+    assert dialog.session_combo.itemText(1) == "2026-2027"
+    assert dialog.session_combo.itemData(1) == 1
+    assert dialog.session_combo.currentData() is None
+
+    dialog.session_combo.setCurrentIndex(dialog.session_combo.findData(1))
+    assert [
+        (dialog.class_combo.itemText(index), dialog.class_combo.itemData(index))
+        for index in range(1, dialog.class_combo.count())
+    ] == [("Grade 10", 1), ("Grade 9", 2)]
+
+    dialog.class_combo.setCurrentIndex(dialog.class_combo.findData(1))
+    assert [
+        (dialog.section_combo.itemText(index), dialog.section_combo.itemData(index))
+        for index in range(1, dialog.section_combo.count())
+    ] == [("A", 1), ("B", 2)]
+    dialog.close()
+
+
+def test_no_active_sessions_are_shown_disabled_with_actionable_message(
+    bulk_context,
+):
+    _service, student_repository, setup_repository, session_factory, _engine, _app = (
+        bulk_context
+    )
+    with session_factory() as session:
+        for academic_session in session.query(AcademicSession).all():
+            academic_session.is_active = False
+        session.commit()
+
+    dialog = BulkStudentEntryDialog(setup_repository, student_repository)
+
+    assert dialog.session_combo.currentData() is None
+    assert dialog.session_combo.itemText(1) == "2026-2027 (Inactive)"
+    assert dialog.session_combo.itemText(2) == "2025-2026 (Inactive)"
+    assert not dialog.session_combo.model().item(1).isEnabled()
+    assert not dialog.session_combo.model().item(2).isEnabled()
+    assert "No active academic session" in dialog.status_label.text()
+    assert "Academic Setup" in dialog.status_label.text()
+    dialog.close()
+
+
+def test_empty_session_list_shows_configuration_message(bulk_context, monkeypatch):
+    _service, student_repository, setup_repository, *_ = bulk_context
+    monkeypatch.setattr(setup_repository, "get_all_sessions", lambda: [])
+
+    dialog = BulkStudentEntryDialog(setup_repository, student_repository)
+
+    assert dialog.session_combo.count() == 1
+    assert "No academic sessions are configured" in dialog.status_label.text()
+    assert "Academic Setup" in dialog.status_label.text()
+    dialog.close()
+
+
+def test_session_database_error_is_logged_and_shown_to_user(
+    bulk_context, monkeypatch, caplog
+):
+    _service, student_repository, setup_repository, *_ = bulk_context
+
+    def fail_to_load_sessions():
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr(setup_repository, "get_all_sessions", fail_to_load_sessions)
+    dialog = BulkStudentEntryDialog(setup_repository, student_repository)
+
+    assert dialog.session_combo.count() == 1
+    assert "could not be loaded" in dialog.status_label.text()
+    assert "Academic Setup" not in dialog.status_label.text()
+    assert "Could not load academic sessions" in caplog.text
     dialog.close()
 
 

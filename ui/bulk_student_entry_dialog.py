@@ -115,7 +115,7 @@ class BulkStudentEntryDialog(QDialog):
         self.selected_file = None
         self.imported_count = 0
         self._build_ui()
-        self._load_active_sessions()
+        self._load_sessions()
         self._update_controls()
 
     def _build_ui(self):
@@ -181,16 +181,43 @@ class BulkStudentEntryDialog(QDialog):
         self.class_combo.currentIndexChanged.connect(self._on_class_changed)
         self.section_combo.currentIndexChanged.connect(self._on_context_changed)
 
-    def _load_active_sessions(self):
-        active_sessions = 0
-        for academic_session in self.setup_repository.get_all_sessions():
-            if academic_session.is_active:
-                self.session_combo.addItem(academic_session.name, academic_session.id)
-                active_sessions += 1
-        if not active_sessions:
+    def _load_sessions(self):
+        try:
+            sessions = self.setup_repository.get_all_sessions()
+        except SQLAlchemyError:
+            logger.exception("Could not load academic sessions for bulk student entry")
             self.status_label.setText(
-                "No active academic session is configured. Mark the intended session active "
-                "in Academic Setup before importing students."
+                "Academic sessions could not be loaded. Check the database connection "
+                "and try again."
+            )
+            return
+
+        active_sessions = 0
+        for academic_session in sessions:
+            is_active = bool(academic_session.is_active)
+            label = academic_session.name
+            if not is_active:
+                label = f"{label} (Inactive)"
+            self.session_combo.addItem(label, academic_session.id)
+            if is_active:
+                active_sessions += 1
+            else:
+                self.session_combo.model().item(
+                    self.session_combo.count() - 1
+                ).setEnabled(False)
+
+        if active_sessions:
+            return
+        if sessions:
+            self.status_label.setText(
+                "No active academic session is configured. Inactive sessions are shown "
+                "but cannot be selected. Mark the intended session active in Academic Setup "
+                "before importing students."
+            )
+        else:
+            self.status_label.setText(
+                "No academic sessions are configured. Create a session in Academic Setup "
+                "before importing students."
             )
 
     def _on_session_changed(self, _index):
