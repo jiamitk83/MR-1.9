@@ -1,7 +1,7 @@
 from models.database import SessionLocal
-from models.student import Student
+from models.database import Student, AcademicSession
 from models.examination import Examination
-from models.marks import Mark
+from models.audit import AuditLog
 from sqlalchemy import func
 
 class DashboardRepository:
@@ -20,18 +20,23 @@ class DashboardRepository:
             stats['total_students'] = session.query(func.count(Student.id)).scalar()
 
             # Active sessions
-            stats['active_sessions'] = session.query(func.count(Examination.session_id)).\
-                filter(Examination.session_id.in_(
-                    session.query(Student.session_id).filter(Student.active == True).distinct()
-                )).scalar()
+            stats['active_sessions'] = session.query(func.count(AcademicSession.id)).filter(
+                AcademicSession.is_active.is_(True)
+            ).scalar()
 
             # Exams configured
             stats['exams_count'] = session.query(func.count(Examination.id)).scalar()
+
+            # Classes count
+            from models.database import Class
+            stats['classes_count'] = session.query(func.count(Class.id)).scalar()
 
             return stats
 
     def get_recent_activity(self, limit=10):
         """Get recent activity from audit log"""
         with self.session_factory() as session:
-            # This would query audit table if implemented
-            return []
+            return session.query(AuditLog).order_by(
+                AuditLog.timestamp.desc(),
+                AuditLog.id.desc(),
+            ).limit(max(0, limit)).all()

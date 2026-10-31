@@ -16,7 +16,13 @@ THEMES = {
     "light": {
         "window": "#F4F6F8",
         "surface": "#FFFFFF",
-        "sidebar": "#EEF1F5",
+        "sidebar": "#E6EBF2",
+        "sidebar_text": "#344355",
+        "sidebar_secondary": "#64748B",
+        "sidebar_hover": "#D9E1EB",
+        "sidebar_selected": "#1D5F9E",
+        "sidebar_selected_text": "#FFFFFF",
+        "sidebar_indicator": "#B7DCFF",
         "card": "#FFFFFF",
         "input": "#FFFFFF",
         "text": "#243447",
@@ -41,7 +47,13 @@ THEMES = {
     "dark": {
         "window": "#181A1B",
         "surface": "#181A1B",
-        "sidebar": "#1E2227",
+        "sidebar": "#20262E",
+        "sidebar_text": "#DCE4ED",
+        "sidebar_secondary": "#AAB4C0",
+        "sidebar_hover": "#303A46",
+        "sidebar_selected": "#3478B9",
+        "sidebar_selected_text": "#FFFFFF",
+        "sidebar_indicator": "#B7DCFF",
         "card": "#24292F",
         "input": "#2B3038",
         "text": "#E6EDF3",
@@ -81,21 +93,64 @@ def _stylesheet(colors):
             border: 0;
             border-right: 1px solid {colors["border"]};
         }}
-        QListWidget {{
+        QLabel#navigationBrandMark {{
+            color: #FFFFFF;
+            background-color: {colors["primary"]};
+            border: 0;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 700;
+            qproperty-alignment: AlignCenter;
+        }}
+        QLabel#navigationBrandName {{
+            color: {colors["sidebar_text"]};
+            background-color: transparent;
+            font-size: 12px;
+            font-weight: 700;
+        }}
+        QLabel#navigationBrandSubtitle {{
+            color: {colors["sidebar_secondary"]};
+            background-color: transparent;
+            font-size: 8px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }}
+        QFrame#navigationDivider {{
+            color: {colors["border"]};
+            background-color: {colors["border"]};
+            border: 0;
+            max-height: 1px;
+        }}
+        QLabel#navigationHeading {{
+            color: {colors["sidebar_secondary"]};
+            background-color: transparent;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 4px 8px 2px;
+        }}
+        QListWidget#navigationList {{
+            color: {colors["sidebar_text"]};
             background-color: {colors["sidebar"]};
             border: 0;
             outline: 0;
         }}
-        QListWidget::item {{
-            padding: 9px 10px;
-            border-radius: 4px;
+        QListWidget#navigationList::item {{
+            color: {colors["sidebar_text"]};
+            padding: 7px 12px;
+            margin: 0 3px;
+            border: 0;
+            border-left: 3px solid transparent;
+            border-radius: 6px;
         }}
-        QListWidget::item:hover {{
-            background-color: {colors["hover"]};
+        QListWidget#navigationList::item:hover {{
+            background-color: {colors["sidebar_hover"]};
         }}
-        QListWidget::item:selected {{
-            color: {colors["selection_text"]};
-            background-color: {colors["selected"]};
+        QListWidget#navigationList::item:selected {{
+            color: {colors["sidebar_selected_text"]};
+            background-color: {colors["sidebar_selected"]};
+            border-left: 3px solid {colors["sidebar_indicator"]};
+            font-weight: 600;
         }}
         QGroupBox, QFrame#themeCard {{
             background-color: {colors["card"]};

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Boolean, Date
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, Boolean, Date, event
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from app.config import DATABASE_URL
 
@@ -39,7 +39,9 @@ class Student(Base):
     name = Column(String, nullable=False)
     father_name = Column(String)
     mother_name = Column(String)
-    dob = Column(Date)
+    date_of_birth = Column(Date)
+    address = Column(String)
+
     session_id = Column(Integer, ForeignKey('academic_sessions.id'))
     class_id = Column(Integer, ForeignKey('classes.id'))
     section_id = Column(Integer, ForeignKey('sections.id'))
@@ -49,9 +51,20 @@ class Student(Base):
 from models.examination import Examination, ExamComponent
 from models.marks import Mark
 from models.audit import AuditLog, ExamLock, SubjectAlias
+from models.report_card import ReportCardDetails
+from models.grade_mark import GradeMark
 
 # Engine setup
 engine = create_engine(DATABASE_URL)
+
+
+@event.listens_for(engine, "connect")
+def _enable_sqlite_foreign_keys(connection, _record):
+    cursor = connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine)
 
 def init_db():

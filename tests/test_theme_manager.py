@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ui.theme_manager import THEME_SETTING_KEY, ThemeHeader, ThemeManager
+from ui.theme_manager import THEME_SETTING_KEY, THEMES, ThemeHeader, ThemeManager
 from ui.report_card_page import ReportCardPage
 
 
@@ -80,6 +80,29 @@ def test_toggle_button_switches_theme_and_updates_icon_and_tooltip(theme_context
     header.toggle_button.click()
     assert manager.current_theme == "light"
     header.close()
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_navigation_panel_and_selected_page_have_clear_theme_contrast(
+    theme_context, theme
+):
+    app, manager, _settings, _path = theme_context
+    manager.set_theme(theme)
+
+    stylesheet = app.styleSheet()
+    colors = THEMES[theme]
+
+    assert "QWidget#navigationSidebar" in stylesheet
+    assert "QLabel#navigationBrandMark" in stylesheet
+    assert "QLabel#navigationBrandName" in stylesheet
+    assert "QFrame#navigationDivider" in stylesheet
+    assert "QLabel#navigationHeading" in stylesheet
+    assert "QListWidget#navigationList::item:selected" in stylesheet
+    assert f'background-color: {colors["sidebar"]};' in stylesheet
+    assert f'color: {colors["sidebar_text"]};' in stylesheet
+    assert f'background-color: {colors["sidebar_selected"]};' in stylesheet
+    assert f'color: {colors["sidebar_selected_text"]};' in stylesheet
+    assert f'border-left: 3px solid {colors["sidebar_indicator"]};' in stylesheet
 
 
 def test_new_dialogs_inherit_theme_and_tables_use_alternating_rows(theme_context):

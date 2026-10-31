@@ -1,7 +1,13 @@
 import re
 
 from models.database import SessionLocal, Student, AcademicSession, Class, Section
-from sqlalchemy import and_
+from models.grade_mark import GradeMark
+from models.marks import Mark
+from models.report_card import ReportCardDetails
+
+
+_UNSET = object()
+
 
 class StudentRepository:
     def __init__(self):
@@ -133,12 +139,11 @@ class StudentRepository:
                 raise
 
     def add_student(self, name, roll_number, father_name=None, mother_name=None,
-                    dob=None, session_id=None, class_id=None, section_id=None):
+         session_id=None, class_id=None, section_id=None, date_of_birth=None, address=None):
         with self.session_factory() as session:
-            # Check for duplicate roll number
-            existing = session.query(Student).filter(
-                and_(Student.roll_number == roll_number)
-            ).first()
+            existing = self._find_roll_conflict(
+                session, roll_number, session_id, class_id, section_id
+            )
             if existing:
                 return None  # Duplicate roll number
 
@@ -149,7 +154,8 @@ class StudentRepository:
                 name=name,
                 father_name=father_name,
                 mother_name=mother_name,
-                dob=dob,
+                date_of_birth=date_of_birth,
+                address=address,
                 session_id=session_id,
                 class_id=class_id,
                 section_id=section_id
@@ -184,31 +190,40 @@ class StudentRepository:
             return session.query(Student).filter(Student.id == student_id).first()
 
     def update_student(self, student_id, name=None, roll_number=None, father_name=None,
-                       mother_name=None, dob=None, session_id=None, class_id=None,
-                       section_id=None, active=None):
+                       mother_name=None, session_id=None, class_id=None,
+                       section_id=None, active=None, date_of_birth=_UNSET, address=_UNSET):
         with self.session_factory() as session:
             student = session.query(Student).filter(Student.id == student_id).first()
             if not student:
                 return None
 
-            # Check duplicate roll number
-            if roll_number and roll_number != student.roll_number:
-                existing = session.query(Student).filter(
-                    and_(Student.roll_number == roll_number, Student.id != student_id)
-                ).first()
+            target_roll = student.roll_number if roll_number is None else roll_number
+            target_session = student.session_id if session_id is None else session_id
+            target_class = student.class_id if class_id is None else class_id
+            target_section = student.section_id if section_id is None else section_id
+            if target_roll != student.roll_number or (
+                target_session, target_class, target_section
+            ) != (student.session_id, student.class_id, student.section_id):
+                existing = self._find_roll_conflict(
+                    session, target_roll, target_session, target_class, target_section,
+                    exclude_student_id=student_id,
+                )
                 if existing:
                     return None  # Duplicate
 
-            if name:
+            if name is not None:
                 student.name = name
-            if roll_number:
+            if roll_number is not None:
                 student.roll_number = roll_number
             if father_name is not None:
                 student.father_name = father_name
             if mother_name is not None:
                 student.mother_name = mother_name
-            if dob is not None:
-                student.dob = dob
+            if date_of_birth is not _UNSET:
+                student.date_of_birth = date_of_birth
+            if address is not _UNSET:
+                student.address = address
+
             if session_id is not None:
                 student.session_id = session_id
             if class_id is not None:
@@ -221,6 +236,21 @@ class StudentRepository:
             session.commit()
             return student
 
+    @staticmethod
+    def _find_roll_conflict(
+        session, roll_number, session_id, class_id, section_id, exclude_student_id=None
+    ):
+        query = session.query(Student).filter(Student.roll_number == roll_number)
+        if session_id is not None:
+            query = query.filter(Student.session_id == session_id)
+        if class_id is not None:
+            query = query.filter(Student.class_id == class_id)
+        if section_id is not None:
+            query = query.filter(Student.section_id == section_id)
+        if exclude_student_id is not None:
+            query = query.filter(Student.id != exclude_student_id)
+        return query.first()
+
     def delete_student(self, student_id):
         with self.session_factory() as session:
             student = session.query(Student).filter(Student.id == student_id).first()
@@ -230,6 +260,22 @@ class StudentRepository:
                 session.commit()
                 return True
             return False
+
+    def permanently_delete_student(self, student_id):
+        """Hard-delete an inactive student and all of their marks and report data."""
+        with self.session_factory() as session:
+            student = session.query(Student).filter(Student.id == student_id).first()
+            if not student:
+                return False
+            if student.active:
+                raise ValueError("Deactivate the student before deleting permanently.")
+            for model in (Mark, GradeMark, ReportCardDetails):
+                session.query(model).filter(model.student_id == student_id).delete(
+                    synchronize_session=False
+                )
+            session.delete(student)
+            session.commit()
+            return True
 
     def get_cascading_data(self):
         """Get data for cascading dropdowns"""

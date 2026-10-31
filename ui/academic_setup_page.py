@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QListWidget, QTableWidget, QTableWidgetItem,
                              QMessageBox, QTabWidget, QDialog, QDialogButtonBox, QFormLayout,
-                             QComboBox, QDateEdit)
+                             QComboBox, QDateEdit, QInputDialog)
 from PySide6.QtCore import Qt, QDate
 from repositories.academic_setup import AcademicSetupRepository
 
@@ -74,6 +74,7 @@ class AcademicSetupPage(QWidget):
         btn_layout.addWidget(delete_btn)
         layout.addLayout(btn_layout)
 
+        widget.setLayout(layout)
         return widget
 
     def _create_class_tab(self):
@@ -111,6 +112,7 @@ class AcademicSetupPage(QWidget):
         btn_layout.addWidget(delete_btn)
         layout.addLayout(btn_layout)
 
+        widget.setLayout(layout)
         return widget
 
     def _create_section_tab(self):
@@ -132,8 +134,8 @@ class AcademicSetupPage(QWidget):
 
         # Table
         self.section_table = QTableWidget()
-        self.section_table.setColumnCount(4)
-        self.section_table.setHorizontalHeaderLabels(["ID", "Name", "Class", "Session"])
+        self.section_table.setColumnCount(5)
+        self.section_table.setHorizontalHeaderLabels(["ID", "Name", "Class", "Session", "Actions"])
         self.section_table.setEditTriggers(QTableWidget.NoEditTriggers)
         layout.addWidget(self.section_table)
 
@@ -150,6 +152,7 @@ class AcademicSetupPage(QWidget):
         btn_layout.addWidget(delete_btn)
         layout.addLayout(btn_layout)
 
+        widget.setLayout(layout)
         return widget
 
     def _create_subject_tab(self):
@@ -188,6 +191,7 @@ class AcademicSetupPage(QWidget):
         btn_layout.addWidget(delete_btn)
         layout.addLayout(btn_layout)
 
+        widget.setLayout(layout)
         return widget
 
     # ========== Sessions CRUD ==========
@@ -195,10 +199,16 @@ class AcademicSetupPage(QWidget):
         dialog = SessionDialog(self)
         if dialog.exec() == QDialog.Accepted:
             name, start_date, end_date, is_active = dialog.get_values()
-            if name:
-                self.repo.add_session(name=name, start_date=start_date, end_date=end_date, is_active=is_active)
-                self.refresh_sessions()
-                QMessageBox.information(self, "Success", "Session added successfully!")
+            if name.strip():
+                try:
+                    result = self.repo.add_session(name=name, start_date=start_date, end_date=end_date, is_active=is_active)
+                    if result:
+                        self.refresh_sessions()
+                        QMessageBox.information(self, "Success", "Session added successfully!")
+                    else:
+                        QMessageBox.warning(self, "Error", "Session with this name already exists.")
+                except ValueError as e:
+                    QMessageBox.warning(self, "Error", str(e))
 
     def edit_session(self):
         row = self.session_table.currentRow()
@@ -209,9 +219,13 @@ class AcademicSetupPage(QWidget):
         dialog = SessionDialog(self, session_id=int(session_id))
         if dialog.exec() == QDialog.Accepted:
             name, start_date, end_date, is_active = dialog.get_values()
-            if name:
-                self.repo.update_session(session_id=int(session_id), name=name, start_date=start_date,
-                                         end_date=end_date, is_active=is_active)
+            if name.strip():
+                try:
+                    self.repo.update_session(session_id=int(session_id), name=name, start_date=start_date,
+                                             end_date=end_date, is_active=is_active)
+                except ValueError as e:
+                    QMessageBox.warning(self, "Error", str(e))
+                    return
                 self.refresh_sessions()
                 QMessageBox.information(self, "Success", "Session updated successfully!")
 
@@ -225,9 +239,11 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete session ID {session_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_session(session_id=int(session_id))
-            self.refresh_sessions()
-            QMessageBox.information(self, "Success", "Session deleted successfully!")
+            if self.repo.delete_session(session_id=int(session_id)):
+                self.refresh_sessions()
+                QMessageBox.information(self, "Success", "Session deleted successfully!")
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The session is still used by students, sections, or examinations.")
 
     def refresh_sessions(self):
         keyword = self.session_search.text().strip()
@@ -255,9 +271,13 @@ class AcademicSetupPage(QWidget):
         dialog = SessionDialog(self, session_id=int(session_id))
         if dialog.exec() == QDialog.Accepted:
             name, start_date, end_date, is_active = dialog.get_values()
-            if name:
-                self.repo.update_session(session_id=int(session_id), name=name, start_date=start_date,
-                                         end_date=end_date, is_active=is_active)
+            if name.strip():
+                try:
+                    self.repo.update_session(session_id=int(session_id), name=name, start_date=start_date,
+                                             end_date=end_date, is_active=is_active)
+                except ValueError as e:
+                    QMessageBox.warning(self, "Error", str(e))
+                    return
                 self.refresh_sessions()
 
     def _delete_session_from_row(self, row):
@@ -266,19 +286,21 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete session ID {session_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_session(session_id=int(session_id))
-            self.refresh_sessions()
+            if self.repo.delete_session(session_id=int(session_id)):
+                self.refresh_sessions()
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The session is still used by students, sections, or examinations.")
 
     # ========== Classes CRUD ==========
     def add_class(self):
-        name, ok = QLineEdit.getText("Enter Class Name", "Add Class", "", self)
+        name, ok = QInputDialog.getText(self, "Add Class", "Enter Class Name")
         if ok and name:
-            result = self.repo.add_class(name=name)
-            if result:
+            try:
+                self.repo.add_class(name=name)
                 self.refresh_classes()
                 QMessageBox.information(self, "Success", "Class added successfully!")
-            else:
-                QMessageBox.warning(self, "Error", "Class name already exists!")
+            except ValueError as e:
+                QMessageBox.warning(self, "Error", str(e))
 
     def edit_class(self):
         row = self.class_table.currentRow()
@@ -287,7 +309,7 @@ class AcademicSetupPage(QWidget):
             return
         class_id = self.class_table.item(row, 0).text()
         current_name = self.class_table.item(row, 1).text()
-        name, ok = QLineEdit.getText("Enter Class Name", "Edit Class", current_name, self)
+        name, ok = QInputDialog.getText(self, "Edit Class", "Enter Class Name", text=current_name)
         if ok and name:
             self.repo.update_class(class_id=int(class_id), name=name)
             self.refresh_classes()
@@ -303,9 +325,11 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete class ID {class_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_class(class_id=int(class_id))
-            self.refresh_classes()
-            QMessageBox.information(self, "Success", "Class deleted successfully!")
+            if self.repo.delete_class(class_id=int(class_id)):
+                self.refresh_classes()
+                QMessageBox.information(self, "Success", "Class deleted successfully!")
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The class is still assigned to students or sections.")
 
     def refresh_classes(self):
         classes = self.repo.get_all_classes()
@@ -327,7 +351,7 @@ class AcademicSetupPage(QWidget):
     def _edit_class_from_row(self, row):
         class_id = self.class_table.item(row, 0).text()
         current_name = self.class_table.item(row, 1).text()
-        name, ok = QLineEdit.getText("Enter Class Name", "Edit Class", current_name, self)
+        name, ok = QInputDialog.getText(self, "Edit Class", "Enter Class Name", text=current_name)
         if ok and name:
             self.repo.update_class(class_id=int(class_id), name=name)
             self.refresh_classes()
@@ -338,8 +362,10 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete class ID {class_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_class(class_id=int(class_id))
-            self.refresh_classes()
+            if self.repo.delete_class(class_id=int(class_id)):
+                self.refresh_classes()
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The class is still assigned to students or sections.")
 
     # ========== Sections CRUD ==========
     def add_section(self):
@@ -377,9 +403,11 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete section ID {section_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_section(section_id=int(section_id))
-            self.refresh_sections()
-            QMessageBox.information(self, "Success", "Section deleted successfully!")
+            if self.repo.delete_section(section_id=int(section_id)):
+                self.refresh_sections()
+                QMessageBox.information(self, "Success", "Section deleted successfully!")
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The section is still assigned to students.")
 
     def refresh_sections(self):
         class_id = self.section_class_combo.currentData()
@@ -421,8 +449,10 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete section ID {section_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_section(section_id=int(section_id))
-            self.refresh_sections()
+            if self.repo.delete_section(section_id=int(section_id)):
+                self.refresh_sections()
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The section is still assigned to students.")
 
     # ========== Subjects CRUD ==========
     def add_subject(self):
@@ -460,9 +490,11 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete subject ID {subject_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_subject(subject_id=int(subject_id))
-            self.refresh_subjects()
-            QMessageBox.information(self, "Success", "Subject deleted successfully!")
+            if self.repo.delete_subject(subject_id=int(subject_id)):
+                self.refresh_subjects()
+                QMessageBox.information(self, "Success", "Subject deleted successfully!")
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The subject is still used by marks or aliases.")
 
     def refresh_subjects(self):
         keyword = self.subject_search.text().strip()
@@ -498,8 +530,10 @@ class AcademicSetupPage(QWidget):
                                      f"Are you sure you want to delete subject ID {subject_id}?",
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.repo.delete_subject(subject_id=int(subject_id))
-            self.refresh_subjects()
+            if self.repo.delete_subject(subject_id=int(subject_id)):
+                self.refresh_subjects()
+            else:
+                QMessageBox.warning(self, "Cannot Delete", "The subject is still used by marks or aliases.")
 
     def refresh_all(self):
         self.refresh_sessions()
@@ -564,8 +598,8 @@ class SessionDialog(QDialog):
     def get_values(self):
         return (
             self.name_input.text(),
-            self.start_date.date().toPyDate(),
-            self.end_date.date().toPyDate(),
+            self.start_date.date().toPython(),
+            self.end_date.date().toPython(),
             self.is_active.currentText() == "Yes"
         )
 

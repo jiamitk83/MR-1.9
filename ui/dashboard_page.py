@@ -1,13 +1,12 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QFrame, QGraphicsDropShadowEffect, QFont)
+                                 QFrame, QGraphicsDropShadowEffect)
+from PySide6.QtGui import QFont
 from repositories.dashboard import DashboardRepository
-from repositories.academic_setup import AcademicSetupRepository
 
 class DashboardPage(QWidget):
     def __init__(self):
         super().__init__()
         self.repo = DashboardRepository()
-        self.setup_repo = AcademicSetupRepository()
         self.init_ui()
 
     def init_ui(self):
@@ -24,11 +23,13 @@ class DashboardPage(QWidget):
         cards_layout.setSpacing(15)
 
         self.cards = [
-            ("Active Students", "0", "text-green-600"),
-            ("Total Sessions", "0", "text-blue-600"),
-            ("Exams Configured", "0", "text-purple-600"),
-            ("Classes", "0", "text-orange-600"),
+            ["Active Students", "0", "text-green-600"],
+            ["Total Students", "0", "text-blue-600"],
+            ["Active Sessions", "0", "text-teal-600"],
+            ["Exams Configured", "0", "text-purple-600"],
+            ["Classes", "0", "text-orange-600"]
         ]
+        self.stat_value_labels = []
 
         for label, value, color in self.cards:
             card = self._create_stat_card(label, value, color)
@@ -42,6 +43,7 @@ class DashboardPage(QWidget):
         layout.addWidget(activity_label)
 
         self.activity_text = QLabel("No recent activity")
+        self.activity_text.setWordWrap(True)
         self.activity_text.setStyleSheet("color: gray; font-style: italic;")
         layout.addWidget(self.activity_text)
 
@@ -68,6 +70,7 @@ class DashboardPage(QWidget):
         title_label.setStyleSheet("color: gray; font-size: 12px;")
 
         value_label = QLabel(value)
+        self.stat_value_labels.append(value_label)
         value_label.setFont(QFont("Segoe UI", 24, QFont.Bold))
         value_label.setStyleSheet(f"color: palette(text);")
 
@@ -81,17 +84,20 @@ class DashboardPage(QWidget):
     def refresh_stats(self):
         """Refresh dashboard statistics"""
         stats = self.repo.get_stats()
-        sessions = self.setup_repo.get_all_sessions()
+        activities = self.repo.get_recent_activity()
 
         # Update card values
         self.cards[0][1] = str(stats.get('active_students', 0))
-        self.cards[1][1] = str(len(sessions))
-        self.cards[2][1] = str(stats.get('exams_count', 0))
-        self.cards[3][1] = str(len(self.setup_repo.get_all_classes()))
+        self.cards[1][1] = str(stats.get('total_students', 0))
+        self.cards[2][1] = str(stats.get('active_sessions', 0))
+        self.cards[3][1] = str(stats.get('exams_count', 0))
+        self.cards[4][1] = str(stats.get('classes_count', 0))
 
-        # Update UI
-        cards = self.findChildren(QFrame)
-        for i, card in enumerate(cards[:4]):
-            value_label = card.findChild(QLabel, "")
-            if value_label and i < len(self.cards):
-                value_label.setText(self.cards[i][1])
+        for value_label, card in zip(self.stat_value_labels, self.cards):
+            value_label.setText(card[1])
+        self.activity_text.setText(
+            "\n".join(
+                f"{activity.timestamp:%Y-%m-%d %H:%M} — {activity.action} {activity.entity_type}"
+                for activity in activities
+            ) or "No recent activity"
+        )

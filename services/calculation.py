@@ -1,6 +1,19 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 class CalculationService:
+    GRADE_ONLY_SUBJECT_CODES = frozenset({"GK"})
+    GRADE_ONLY_SUBJECT_NAMES = frozenset({"GENERAL KNOWLEDGE", "GUIDANCE", "CIVICS"})
+
+    GRADE_BOUNDARIES = (
+        (Decimal("91"), "A1"),
+        (Decimal("81"), "A2"),
+        (Decimal("71"), "B1"),
+        (Decimal("61"), "B2"),
+        (Decimal("51"), "C1"),
+        (Decimal("41"), "C2"),
+        (Decimal("33"), "D"),
+    )
+
     @staticmethod
     def format_marks(value):
         """Formats marks to exactly two decimal places as a string."""
@@ -10,23 +23,19 @@ class CalculationService:
 
     @staticmethod
     def calculate_percentage(obtained, total_max):
-        """Calculates percentage given obtained and max marks."""
-        if not total_max or total_max == 0:
-            return Decimal("0.00")
-        percentage = (Decimal(str(obtained)) / Decimal(str(total_max))) * 100
-        return percentage.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+        """Return the unrounded percentage; round only when formatting for display."""
+        maximum = Decimal(str(total_max))
+        if maximum <= 0:
+            return Decimal("0")
+        return (Decimal(str(obtained)) / maximum) * 100
 
     @staticmethod
     def get_grade(percentage):
-        """Returns the grade based on the percentage."""
-        p = float(percentage)
-        if p >= 91: return "A1"
-        if p >= 81: return "A2"
-        if p >= 71: return "B1"
-        if p >= 61: return "B2"
-        if p >= 51: return "C1"
-        if p >= 41: return "C2"
-        if p >= 33: return "D"
+        """Return a grade using the unrounded percentage."""
+        value = Decimal(str(percentage))
+        for boundary, grade in CalculationService.GRADE_BOUNDARIES:
+            if value >= boundary:
+                return grade
         return "E"
 
     @staticmethod
@@ -36,3 +45,13 @@ class CalculationService:
             return Decimal("0.00")
         derived = (Decimal(str(obtained)) / Decimal(str(original_max))) * 5
         return derived.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+
+    @staticmethod
+    def is_grade_only_subject(subject):
+        """Identify configured grade-only subjects without fuzzy name matching."""
+        code = (subject.code or "").strip().upper()
+        name = (subject.name or "").strip().upper()
+        return (
+            code in CalculationService.GRADE_ONLY_SUBJECT_CODES
+            or name in CalculationService.GRADE_ONLY_SUBJECT_NAMES
+        )

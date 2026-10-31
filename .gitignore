@@ -18,3 +18,10 @@ data/*.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Node / tooling
+node_modules/
+.claude/
+index.js
+package.json
+package-lock.json
